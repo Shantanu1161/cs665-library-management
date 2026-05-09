@@ -3,7 +3,7 @@
    CS665 Project 3
    ════════════════════════════════════════════════════════ */
 
-const API = "http://localhost:8000";
+const API = "http://localhost:8001";
 
 /* ── State ─────────────────────────────────────────────── */
 let editingBookId   = null;
@@ -18,8 +18,28 @@ async function api(method, path, body = null) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(formatError(data, res.status));
   return data;
+}
+
+/* ── Error formatter ───────────────────────────────────────
+   FastAPI returns errors in two shapes:
+   1. Plain strings (custom HTTPException raise)  -> data.detail = "Member not found"
+   2. Pydantic validation errors                  -> data.detail = [{loc, msg, type}, ...]
+   We handle both so the user sees a real message instead of "[object Object]". */
+function formatError(data, status) {
+  const d = data && data.detail;
+  if (!d) return `HTTP ${status}`;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d)) {
+    return d.map(e => {
+      // Pydantic loc looks like ["body", "title"]; show the field name + message
+      const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : "";
+      const msg = e.msg || JSON.stringify(e);
+      return field ? `${field}: ${msg}` : msg;
+    }).join(" - ");
+  }
+  return JSON.stringify(d);
 }
 
 /* ── Toast ─────────────────────────────────────────────── */

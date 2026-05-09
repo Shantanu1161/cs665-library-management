@@ -152,6 +152,30 @@ After the fix I cross-checked the dashboard against the /borrows endpoint and th
 Lesson for myself: AI-generated SQL involving multiple joins and aggregates needs a sanity check against the raw data before I trust the dashboard numbers. From here on I plan to verify any aggregate panel against an independent count of the underlying rows.
 
 
+Second bug - error toasts showing "[object Object]" instead of the real message
+
+While testing what happens when the user submits invalid data (empty title, rating outside 1-5), the toast at the bottom of the screen would just say "[object Object]" - completely useless to the user. I tracked it down to the api() helper in app.js that I had been using to talk to the backend:
+
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+The problem is that FastAPI returns errors in two different shapes. For my own HTTPException raises, data.detail is a plain string like "Member not found" - that case worked fine. But for Pydantic validation errors, data.detail is an array of objects:
+
+  [{"loc": ["body", "title"], "msg": "String should have at least 1 character", ...}]
+
+Passing that array to new Error() makes JavaScript stringify it as "[object Object]" because Error expects a string. The AI's helper had only been written for the first case.
+
+I added a formatError() function that handles both cases - returns the string straight if data.detail is a string, or maps the array to "field: message" entries joined by " - " if it's a Pydantic validation array. Now the toast shows the actual problem, like "title: String should have at least 1 character" or "rating: Input should be less than or equal to 5". Fix is in commit ece7948.
+
+
+Third bug - phone field accepted any input including 20 random letters
+
+Once the error toasts were readable I started stress-testing the validation. The Member form let me submit "abc" or 20 random characters as a phone number with no complaint. Looking at the Pydantic model, phone only had max_length=20 and nothing else, so any 1-20 character string was accepted including non-digits.
+
+I added a Pydantic field_validator that strips common separators (space, dash, plus, parentheses, dot) and then requires the remaining characters to be digits, with a length between 7 and 15 (covers domestic and ITU-E.164 international numbers). Empty string is treated the same as no phone. The validator is shared between MemberCreate and MemberUpdate via a private helper. I also tightened the frontend input with inputmode="tel" and a placeholder showing the expected format. Fix is in commit 0a55610.
+
+Going forward I plan to apply the same kind of pressure-test to every input field on the four forms before submission - empty, very long, special characters, type mismatches - rather than just the happy path.
+
+
 Statement
 
 I have read every line of code that ended up in this submission. I can explain any function, query, or transaction in this codebase if asked. The AI accelerated the scaffolding but the architectural decisions, the database design, the validation rules, and the integration of all the pieces are mine.

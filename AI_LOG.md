@@ -123,6 +123,35 @@ Things that are my own work:
 - All design colors, badge logic, and the genre bar chart
 
 
+Bugs I caught and fixed during testing
+
+While clicking through the running app I noticed the dashboard's "Most Borrowed Books" panel showed Harry Potter with 6 borrows even though the Borrows page only listed 3 loans for that book. That mismatch should not be possible if the queries are consistent, so I went and read the SQL behind the dashboard.
+
+The query I had originally accepted from the AI looked like this:
+
+  SELECT b.title, COUNT(l.loan_id) AS borrow_count, ROUND(AVG(r.rating), 1) AS avg_rating
+  FROM Books b
+  LEFT JOIN Loans l ON b.book_id = l.book_id
+  LEFT JOIN Reviews r ON b.book_id = r.book_id
+  GROUP BY b.book_id
+  ORDER BY borrow_count DESC
+
+The bug is a classic SQL "fan trap". Joining one table (Books) to two siblings (Loans and Reviews) in the same statement produces a Cartesian product per book. A book with N loans and M reviews ends up with N*M rows in the joined set, so COUNT(loan_id) reports N*M instead of N. Harry Potter had 3 loans and 2 reviews after I added some test reviews, which is exactly why the count became 6.
+
+I rewrote the query using two independent correlated subqueries, one for each aggregate, so neither count contaminates the other:
+
+  SELECT b.title,
+         (SELECT COUNT(*)              FROM Loans   l WHERE l.book_id = b.book_id) AS borrow_count,
+         (SELECT ROUND(AVG(rating), 1) FROM Reviews r WHERE r.book_id = b.book_id) AS avg_rating
+  FROM Books b
+  ORDER BY borrow_count DESC, b.title ASC
+  LIMIT 5
+
+After the fix I cross-checked the dashboard against the /borrows endpoint and the counts now match exactly. The fix is in commit 8d1990a.
+
+Lesson for myself: AI-generated SQL involving multiple joins and aggregates needs a sanity check against the raw data before I trust the dashboard numbers. From here on I plan to verify any aggregate panel against an independent count of the underlying rows.
+
+
 Statement
 
 I have read every line of code that ended up in this submission. I can explain any function, query, or transaction in this codebase if asked. The AI accelerated the scaffolding but the architectural decisions, the database design, the validation rules, and the integration of all the pieces are mine.

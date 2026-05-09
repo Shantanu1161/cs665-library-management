@@ -286,14 +286,15 @@ def get_dashboard():
     """).fetchall())
     stats["active_borrows"] = active_borrows
 
+    # NOTE: borrow_count and avg_rating are computed in independent subqueries.
+    # Joining both Loans and Reviews directly to Books would produce a Cartesian
+    # product and inflate COUNT(loan_id) by the number of reviews per book.
     top_books = rows_to_list(conn.execute("""
-        SELECT b.title, COUNT(l.loan_id) AS borrow_count,
-               ROUND(AVG(r.rating), 1) AS avg_rating
+        SELECT b.title,
+               (SELECT COUNT(*)         FROM Loans   l WHERE l.book_id = b.book_id) AS borrow_count,
+               (SELECT ROUND(AVG(rating), 1) FROM Reviews r WHERE r.book_id = b.book_id) AS avg_rating
         FROM Books b
-        LEFT JOIN Loans l ON b.book_id = l.book_id
-        LEFT JOIN Reviews r ON b.book_id = r.book_id
-        GROUP BY b.book_id
-        ORDER BY borrow_count DESC
+        ORDER BY borrow_count DESC, b.title ASC
         LIMIT 5
     """).fetchall())
     stats["top_books"] = top_books

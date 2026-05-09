@@ -28,7 +28,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "library.db")
+# Allow tests / CI to point at a throwaway DB without touching the real one.
+# Default is the production database next to this file.
+DB_PATH = os.environ.get(
+    "LIBRARY_DB_PATH",
+    os.path.join(os.path.dirname(__file__), "library.db"),
+)
 
 # ── Database Helpers ─────────────────────────────────────────────────────────
 

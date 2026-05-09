@@ -22,6 +22,66 @@ This application is designed for library staff and administrators to manage the 
 
 ---
 
+## ⚡ Quick Start
+
+### Easiest way — one command (recommended)
+
+After cloning the repo, just run the launcher script. It will create the virtual environment, install dependencies, start both the backend and the frontend, and open the app in your browser.
+
+**macOS / Linux:**
+```bash
+git clone https://github.com/Shantanu1161/cs665-library-management.git
+cd cs665-library-management
+./run.sh
+```
+
+**Windows:**
+```cmd
+git clone https://github.com/Shantanu1161/cs665-library-management.git
+cd cs665-library-management
+run.bat
+```
+
+The browser will open at **http://localhost:3000** automatically. The pill in the top-right should read **● API Connected** (green).
+
+To stop everything: press `Ctrl+C` in the terminal (or close the windows that opened on Windows).
+
+The SQLite database (`backend/library.db`) is auto-created and seeded on the first launch — no manual SQL setup needed.
+
+---
+
+### Manual way (if you prefer to run things yourself)
+
+If the launcher script doesn't fit your workflow, you can do it manually in **two terminals**:
+
+**One-time setup:**
+```bash
+git clone https://github.com/Shantanu1161/cs665-library-management.git
+cd cs665-library-management
+python3 -m venv venv
+source venv/bin/activate         # Windows: venv\Scripts\activate
+pip install -r backend/requirements.txt
+```
+
+**Terminal 1 — backend** (must keep running):
+```bash
+source venv/bin/activate         # Windows: venv\Scripts\activate
+cd backend
+uvicorn main:app --reload
+```
+Wait for: `Uvicorn running on http://127.0.0.1:8000`
+
+**Terminal 2 — frontend** (must keep running):
+```bash
+cd frontend
+python3 -m http.server 3000
+```
+Wait for: `Serving HTTP on :: port 3000`
+
+**Open the app:** http://localhost:3000
+
+---
+
 ## 🗂️ Project Structure
 
 ```
@@ -154,7 +214,11 @@ CREATE TABLE Reviews (
 
 ### Start the Backend Server
 
+The virtual environment must be activated first, otherwise `uvicorn` won't be found:
+
 ```bash
+# From project root
+source venv/bin/activate         # Windows: venv\Scripts\activate
 cd backend
 uvicorn main:app --reload
 ```
@@ -167,17 +231,20 @@ ReDoc API docs: **http://localhost:8000/redoc**
 
 ### Launch the Frontend
 
-**Option A — Open directly in browser:**
-```
-Open frontend/index.html in any modern browser
-```
+In a **second terminal** (the backend must keep running in the first):
 
-**Option B — Serve locally (recommended for CORS-free experience):**
+**Option A — Serve locally (recommended):**
 ```bash
 cd frontend
-python -m http.server 3000
+python3 -m http.server 3000
 ```
 Then navigate to **http://localhost:3000**
+
+**Option B — Open the file directly in a browser:**
+```
+Open frontend/index.html in Chrome/Firefox/Safari
+```
+Note: some browsers block `fetch()` calls from `file://` URLs for security reasons. If the page loads but data doesn't appear, use Option A.
 
 ---
 

@@ -96,64 +96,80 @@ I did not split Loans into multiple tables. The 3NF violations were resolved thr
 Final schema
 
 Users
-  user_id           INTEGER  PK  AUTOINCREMENT
-  name              VARCHAR(100)  NOT NULL
-  email             VARCHAR(100)  NOT NULL UNIQUE
-  phone             VARCHAR(20)
-  membership_type   VARCHAR(20)   NOT NULL DEFAULT 'standard'
-  active            INTEGER       NOT NULL DEFAULT 1
-  created_at        DATE          NOT NULL DEFAULT today
-  updated_at        DATE          NOT NULL DEFAULT today
+
+| Column           | Type          | Constraints                          |
+|------------------|---------------|--------------------------------------|
+| user_id          | INTEGER       | PRIMARY KEY, AUTOINCREMENT           |
+| name             | VARCHAR(100)  | NOT NULL                             |
+| email            | VARCHAR(100)  | NOT NULL, UNIQUE                     |
+| phone            | VARCHAR(20)   |                                      |
+| membership_type  | VARCHAR(20)   | NOT NULL, DEFAULT 'standard'         |
+| active           | INTEGER       | NOT NULL, DEFAULT 1                  |
+| created_at       | DATE          | NOT NULL, DEFAULT today              |
+| updated_at       | DATE          | NOT NULL, DEFAULT today              |
 
 Books
-  book_id           INTEGER  PK  AUTOINCREMENT
-  title             VARCHAR(150)  NOT NULL UNIQUE
-  author            VARCHAR(100)  NOT NULL
-  genre             VARCHAR(50)   NOT NULL
-  isbn              VARCHAR(20)   UNIQUE
-  year              INTEGER
-  total_copies      INTEGER       NOT NULL DEFAULT 1
-  available_copies  INTEGER       NOT NULL DEFAULT 1
-  created_at        DATE          NOT NULL DEFAULT today
-  updated_at        DATE          NOT NULL DEFAULT today
+
+| Column            | Type          | Constraints                          |
+|-------------------|---------------|--------------------------------------|
+| book_id           | INTEGER       | PRIMARY KEY, AUTOINCREMENT           |
+| title             | VARCHAR(150)  | NOT NULL, UNIQUE                     |
+| author            | VARCHAR(100)  | NOT NULL                             |
+| genre             | VARCHAR(50)   | NOT NULL                             |
+| isbn              | VARCHAR(20)   | UNIQUE                               |
+| year              | INTEGER       |                                      |
+| total_copies      | INTEGER       | NOT NULL, DEFAULT 1                  |
+| available_copies  | INTEGER       | NOT NULL, DEFAULT 1                  |
+| created_at        | DATE          | NOT NULL, DEFAULT today              |
+| updated_at        | DATE          | NOT NULL, DEFAULT today              |
 
 Loans
-  loan_id           INTEGER  PK  AUTOINCREMENT
-  user_id           INTEGER  FK -> Users(user_id)   NOT NULL
-  book_id           INTEGER  FK -> Books(book_id)   NOT NULL
-  loan_date         DATE     NOT NULL
-  due_date          DATE     NOT NULL
-  return_date       DATE                            (null while still borrowed)
-  status            VARCHAR(20)  NOT NULL           ('Borrowed' or 'Returned')
-  fine_amount       INTEGER                         (null until first return)
-  created_at        DATE     NOT NULL DEFAULT today
-  updated_at        DATE     NOT NULL DEFAULT today
+
+| Column        | Type         | Constraints                                       |
+|---------------|--------------|---------------------------------------------------|
+| loan_id       | INTEGER      | PRIMARY KEY, AUTOINCREMENT                        |
+| user_id       | INTEGER      | NOT NULL, FOREIGN KEY -> Users(user_id)           |
+| book_id       | INTEGER      | NOT NULL, FOREIGN KEY -> Books(book_id)           |
+| loan_date     | DATE         | NOT NULL                                          |
+| due_date      | DATE         | NOT NULL                                          |
+| return_date   | DATE         | nullable - null while the book is still borrowed  |
+| status        | VARCHAR(20)  | NOT NULL - 'Borrowed' or 'Returned'               |
+| fine_amount   | INTEGER      | nullable - null until first return                |
+| created_at    | DATE         | NOT NULL, DEFAULT today                           |
+| updated_at    | DATE         | NOT NULL, DEFAULT today                           |
 
 Reviews
-  review_id         INTEGER  PK  AUTOINCREMENT
-  user_id           INTEGER  FK -> Users(user_id)   NOT NULL
-  book_id           INTEGER  FK -> Books(book_id)   NOT NULL
-  rating            INTEGER  NOT NULL  CHECK (rating BETWEEN 1 AND 5)
-  comment           VARCHAR(255)
-  created_at        DATE     NOT NULL DEFAULT today
-  updated_at        DATE     NOT NULL DEFAULT today
+
+| Column      | Type          | Constraints                                       |
+|-------------|---------------|---------------------------------------------------|
+| review_id   | INTEGER       | PRIMARY KEY, AUTOINCREMENT                        |
+| user_id     | INTEGER       | NOT NULL, FOREIGN KEY -> Users(user_id)           |
+| book_id     | INTEGER       | NOT NULL, FOREIGN KEY -> Books(book_id)           |
+| rating      | INTEGER       | NOT NULL, CHECK (rating BETWEEN 1 AND 5)          |
+| comment     | VARCHAR(255)  |                                                   |
+| created_at  | DATE          | NOT NULL, DEFAULT today                           |
+| updated_at  | DATE          | NOT NULL, DEFAULT today                           |
 
 
 Relationships at a glance
 
-  Users -< Loans >- Books         (many-to-many through Loans)
-  Users -< Reviews >- Books       (many-to-many through Reviews)
-  Users -< Loans                  (one user, many loans)
-  Books -< Loans                  (one book, many loan records)
-  Users -< Reviews                (one user, many reviews)
-  Books -< Reviews                (one book, many reviews)
+| From  | To      | Cardinality                                            |
+|-------|---------|--------------------------------------------------------|
+| Users | Books   | many-to-many through Loans                             |
+| Users | Books   | many-to-many through Reviews                           |
+| Users | Loans   | one-to-many (one user has many loans)                  |
+| Books | Loans   | one-to-many (one book has many loan records)           |
+| Users | Reviews | one-to-many (one user has many reviews)                |
+| Books | Reviews | one-to-many (one book has many reviews)                |
 
 
 Per-table normal-form summary
 
-  Users    - 1NF, 2NF, 3NF clean
-  Books    - 1NF, 2NF, 3NF clean
-  Loans    - 1NF, 2NF clean. fine_amount and status are cached values kept consistent through transactional updates rather than splitting the table; the result is functionally in 3NF for every read of the table.
-  Reviews  - 1NF, 2NF, 3NF clean
+| Table   | 1NF | 2NF | 3NF | Notes                                                                                       |
+|---------|-----|-----|-----|---------------------------------------------------------------------------------------------|
+| Users   | Yes | Yes | Yes | Clean - no violations                                                                       |
+| Books   | Yes | Yes | Yes | Clean - no violations                                                                       |
+| Loans   | Yes | Yes | Yes | fine_amount and status are cached values kept consistent through transactional updates      |
+| Reviews | Yes | Yes | Yes | Clean - no violations                                                                       |
 
 All four tables are in 3rd Normal Form in the final implementation.

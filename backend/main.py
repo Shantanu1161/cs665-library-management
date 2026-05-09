@@ -6,10 +6,11 @@ Author: Shantanu Rajesh Sawarkar
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 import sqlite3
 import os
+import re
 from datetime import datetime, timedelta, date
 
 # ── App Setup ───────────────────────────────────────────────────────────────
@@ -202,11 +203,31 @@ class BookUpdate(BaseModel):
     total_copies: Optional[int] = Field(None, ge=1)
     available_copies: Optional[int] = Field(None, ge=0)
 
+def _validate_phone(v):
+    """Phone validation shared by MemberCreate and MemberUpdate.
+    Accepts digits with optional separators (space, dash, plus, parens, dot).
+    Requires 7-15 actual digits. Empty string is treated as no phone."""
+    if v is None or v == "":
+        return None
+    cleaned = re.sub(r"[\s\-\+\(\)\.]", "", v)
+    if not cleaned.isdigit():
+        raise ValueError("must contain only digits and optional separators (- + ( ) . space)")
+    if len(cleaned) < 7 or len(cleaned) > 15:
+        raise ValueError("must have between 7 and 15 digits")
+    return v.strip()
+
+
 class MemberCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     email: str = Field(..., min_length=5, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
     membership_type: str = Field("standard", pattern="^(standard|premium)$")
+
+    @field_validator("phone")
+    @classmethod
+    def check_phone(cls, v):
+        return _validate_phone(v)
+
 
 class MemberUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -214,6 +235,11 @@ class MemberUpdate(BaseModel):
     phone: Optional[str] = Field(None, max_length=20)
     membership_type: Optional[str] = Field(None, pattern="^(standard|premium)$")
     active: Optional[int] = Field(None, ge=0, le=1)
+
+    @field_validator("phone")
+    @classmethod
+    def check_phone(cls, v):
+        return _validate_phone(v)
 
 class BorrowCreate(BaseModel):
     user_id: int = Field(..., ge=1)

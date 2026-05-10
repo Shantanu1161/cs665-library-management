@@ -12,16 +12,20 @@ Tools used: Claude (Anthropic, web app and CLI), occasional inline code suggesti
 
 Phase 1 - Database design and normalization
 
-I started with the four-table schema I had designed in an earlier assignment - Users, Books, Loans, Reviews. Before writing any code I wanted to make sure the schema was clean and in 3NF.
+I started with the four-table schema I had designed in an earlier assignment - Users, Books, Loans, Reviews. Before writing any code I went through each table myself to look for 3NF violations.
+
+Users, Books, and Reviews I cleared on my own without asking the AI - their structures are simple (each has a single primary key plus a few atomic descriptor columns), and none of the non-key columns determines another non-key column, so there is no room for transitive dependencies. I documented this reasoning in NORMALIZATION.md.
+
+Loans was the table I was unsure about, because both fine_amount and status felt like they were derived from other columns rather than independent facts. So I went to Claude with that one specifically.
 
 Prompt I used (paraphrased from a longer back-and-forth):
 "Here is my Loans table: loan_id, user_id, book_id, loan_date, due_date, return_date, status, fine_amount. Are there any 3NF violations and how should I fix them?"
 
 What the AI gave me:
-It pointed out that fine_amount has a transitive dependency through return_date - the fine is calculated as a function of (return_date - loan_date) so storing it as a column means it can fall out of sync if return_date is ever changed without recalculating. It also said status (Borrowed vs Returned) is derivable from whether return_date is null, which is the same problem. It offered two fixes - either drop the columns and compute on the fly every query, or keep them as cached values that get re-synced inside the same transaction that touches return_date.
+It confirmed both of my suspicions. fine_amount has a transitive dependency through return_date - the fine is calculated as a function of (return_date - loan_date) so storing it as a column means it can fall out of sync if return_date is ever changed without recalculating. status (Borrowed vs Returned) is derivable from whether return_date is null, which is the same problem. It offered two fixes - either drop the columns and compute on the fly every query, or keep them as cached values that get re-synced inside the same transaction that touches return_date.
 
 What I did:
-I went with the cached/transactional option because the rubric expects fine calculation to be a visible feature. I wrote the NORMALIZATION.md document myself - the AI only flagged the violation, I wrote the actual analysis section, the anomaly walkthrough (update/insert/delete), the 1NF/2NF/3NF check, and the final ER diagram. I also added candidate-key analysis for the Reviews table that wasn't in the AI response.
+I went with the cached/transactional option because the rubric expects fine calculation to be a visible feature. I wrote the NORMALIZATION.md document myself - the AI only flagged the violation in Loans, I wrote the full audit covering all four tables, the anomaly walkthrough (update/insert/delete), the 1NF/2NF/3NF check for each, and the final ER relationships. I also added candidate-key analysis for the Reviews table - I noted that (user_id, book_id) is a semantic candidate key meaning "one review per user per book" - that wasn't in the AI response. The final outcome is that all four tables are in 3NF in the final implementation, with the Loans transitive dependencies resolved via transactional discipline rather than a table split.
 
 The DDL itself I asked Claude to draft as a starting point and then I edited it. The version that ended up in schema.sql adds created_at and updated_at columns to every table (not in the AI's first draft), the phone and membership_type columns on Users, and the due_date column on Loans. I also removed CASCADE deletes that the AI had suggested because I wanted explicit application-level guards instead of silent destruction of loan history.
 

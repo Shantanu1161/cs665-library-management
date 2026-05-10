@@ -16,9 +16,19 @@ This application is designed for library staff and administrators to manage the 
 | Language | Python 3.10+ |
 | Backend Framework | FastAPI |
 | Database | SQLite (via sqlite3 standard library) |
-| Frontend | HTML5, CSS3, Vanilla JavaScript |
+| Frontend | HTML5, CSS3 (Bootstrap 5), Vanilla JavaScript SPA |
 | Fonts | Google Fonts (Playfair Display + DM Sans) |
 | Version Control | Git |
+
+### Stack change disclosure (per Project Note 2)
+
+The project rubric lists **Jinja2 templates** as the recommended frontend approach. I chose to build a **single-page application (SPA)** with Bootstrap 5 + vanilla JavaScript instead, communicating with the FastAPI backend over JSON via the Fetch API. This was a deliberate decision for the following reasons:
+
+- **Cleaner separation of concerns.** The backend is a pure JSON API with no HTML rendering responsibilities, which makes it easier to test, document (via auto-generated Swagger UI at `/docs`), and reuse.
+- **Better user experience.** No full-page reloads when adding/editing/deleting records. The dashboard, books, members, borrows, and reviews pages switch instantly.
+- **Same rubric coverage.** All Part II functional requirements (CRUD, relationships, transactions, validation, dashboard) are satisfied identically; only the rendering layer is different.
+
+The frontend uses Bootstrap 5 (CDN), Bootstrap Icons, and Google Fonts. No build step or framework — just plain HTML/CSS/JS files served by Python's built-in `http.server`.
 
 ---
 
@@ -89,12 +99,18 @@ library-management/
 ├── backend/
 │   ├── main.py              # FastAPI application — all routes, validation, transactions
 │   ├── requirements.txt     # Python dependencies
-│   └── library.db           # SQLite database (auto-created on first run)
+│   └── library.db           # SQLite database (auto-created on first run, gitignored)
 ├── frontend/
-│   └── index.html           # Single-page frontend application
+│   ├── index.html           # SPA markup
+│   ├── css/
+│   │   └── styles.css       # Custom styles (sidebar, modals, badges)
+│   └── js/
+│       └── app.js           # Fetch-API client, CRUD handlers, toasts
 ├── sql/
 │   ├── schema.sql           # Final 3NF DDL schema
 │   └── seed.sql             # Sample data insertion
+├── run.sh                   # One-shot launcher (macOS / Linux)
+├── run.bat                  # One-shot launcher (Windows)
 ├── README.md                # This file
 ├── NORMALIZATION.md         # 3rd Normal Form audit report
 ├── AI_LOG.md                # Generative AI usage disclosure
@@ -160,49 +176,56 @@ sqlite3 backend/library.db < sql/seed.sql
 
 ### Final Schema (3NF)
 
+The canonical DDL lives in [`sql/schema.sql`](./sql/schema.sql). For convenience, the same definitions are reproduced below:
+
 ```sql
 CREATE TABLE Users (
-    user_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name      VARCHAR(100) NOT NULL,
-    email     VARCHAR(100) NOT NULL UNIQUE,
-    created_at DATE NOT NULL DEFAULT (date('now')),
-    updated_at DATE NOT NULL DEFAULT (date('now'))
+    user_id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            VARCHAR(100) NOT NULL,
+    email           VARCHAR(100) NOT NULL UNIQUE,
+    phone           VARCHAR(20),
+    membership_type VARCHAR(20)  NOT NULL DEFAULT 'standard',
+    active          INTEGER      NOT NULL DEFAULT 1,
+    created_at      DATE         NOT NULL DEFAULT (date('now')),
+    updated_at      DATE         NOT NULL DEFAULT (date('now'))
 );
 
 CREATE TABLE Books (
-    book_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-    title      VARCHAR(150) NOT NULL UNIQUE,
-    author     VARCHAR(100) NOT NULL,
-    genre      VARCHAR(50)  NOT NULL,
-    total_copies    INTEGER NOT NULL DEFAULT 1,
-    available_copies INTEGER NOT NULL DEFAULT 1,
-    created_at DATE NOT NULL DEFAULT (date('now')),
-    updated_at DATE NOT NULL DEFAULT (date('now'))
+    book_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title            VARCHAR(150) NOT NULL UNIQUE,
+    author           VARCHAR(100) NOT NULL,
+    genre            VARCHAR(50)  NOT NULL,
+    isbn             VARCHAR(20)  UNIQUE,
+    year             INTEGER,
+    total_copies     INTEGER      NOT NULL DEFAULT 1,
+    available_copies INTEGER      NOT NULL DEFAULT 1,
+    created_at       DATE         NOT NULL DEFAULT (date('now')),
+    updated_at       DATE         NOT NULL DEFAULT (date('now'))
 );
 
 CREATE TABLE Loans (
     loan_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER NOT NULL,
-    book_id     INTEGER NOT NULL,
-    loan_date   DATE NOT NULL DEFAULT (date('now')),
-    due_date    DATE NOT NULL,
+    user_id     INTEGER      NOT NULL,
+    book_id     INTEGER      NOT NULL,
+    loan_date   DATE         NOT NULL DEFAULT (date('now')),
+    due_date    DATE         NOT NULL,
     return_date DATE,
-    status      VARCHAR(20) NOT NULL DEFAULT 'Borrowed',
+    status      VARCHAR(20)  NOT NULL DEFAULT 'Borrowed',
     fine_amount INTEGER,
-    created_at  DATE NOT NULL DEFAULT (date('now')),
-    updated_at  DATE NOT NULL DEFAULT (date('now')),
+    created_at  DATE         NOT NULL DEFAULT (date('now')),
+    updated_at  DATE         NOT NULL DEFAULT (date('now')),
     FOREIGN KEY (user_id) REFERENCES Users(user_id),
     FOREIGN KEY (book_id) REFERENCES Books(book_id)
 );
 
 CREATE TABLE Reviews (
     review_id  INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    INTEGER NOT NULL,
-    book_id    INTEGER NOT NULL,
-    rating     INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    user_id    INTEGER      NOT NULL,
+    book_id    INTEGER      NOT NULL,
+    rating     INTEGER      NOT NULL CHECK(rating BETWEEN 1 AND 5),
     comment    VARCHAR(255),
-    created_at DATE NOT NULL DEFAULT (date('now')),
-    updated_at DATE NOT NULL DEFAULT (date('now')),
+    created_at DATE         NOT NULL DEFAULT (date('now')),
+    updated_at DATE         NOT NULL DEFAULT (date('now')),
     FOREIGN KEY (user_id) REFERENCES Users(user_id),
     FOREIGN KEY (book_id) REFERENCES Books(book_id)
 );
@@ -309,10 +332,10 @@ Note: some browsers block `fetch()` calls from `file://` URLs for security reaso
 | Multi-Table CRUD | ✅ | Full CRUD on Books, Members, Loans, Reviews |
 | One-to-Many Relationship | ✅ | Users → Loans, Books → Loans, Users → Reviews |
 | Many-to-Many (via junction) | ✅ | Users ↔ Books via Loans and Reviews |
-| Transaction Logic | ✅ | Borrow: decrements `available_copies` + creates loan record atomically. Return: increments `available_copies` + sets `returned_at` atomically. |
-| Server-Side Validation | ✅ | Empty string check, rating range (1–5), email uniqueness, availability check, ISBN uniqueness |
-| Summary Dashboard | ✅ | Uses COUNT, AVG, subqueries across all four tables |
-| Fine Calculation | ✅ | Auto-calculated: (days beyond 7) × $2 |
+| Transaction Logic | ✅ | Borrow: creates loan record + decrements `available_copies` atomically inside `BEGIN`/`COMMIT`/`ROLLBACK`. Return: sets `return_date`, recomputes `fine_amount`, and increments `available_copies` atomically. |
+| Server-Side Validation | ✅ | Empty string check, rating range (1–5), phone format (7–15 digits), email uniqueness, availability check, ISBN uniqueness, member-active check |
+| Summary Dashboard | ✅ | Uses **COUNT**, **SUM**, **AVG**, and **GROUP BY** across all four tables |
+| Fine Calculation | ✅ | Auto-calculated on return: `max(0, (return_date - due_date).days) × $2`. Days are configurable per loan (default 14). |
 
 ---
 

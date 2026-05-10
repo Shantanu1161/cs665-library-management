@@ -40,11 +40,19 @@ while lsof -i ":$FRONTEND_PORT" >/dev/null 2>&1; do
 done
 
 # If the backend port isn't 8000, patch the frontend's API const
-# (only for this run; reverts on cleanup)
+# (only for this run; reverts on cleanup, even if script is killed)
 ORIGINAL_JS=""
 if [ "$BACKEND_PORT" != "8000" ]; then
     ORIGINAL_JS="$(cat frontend/js/app.js)"
     sed -i.bak "s|http://localhost:8000|http://localhost:$BACKEND_PORT|g" frontend/js/app.js
+    # Belt-and-suspenders: even if the trap doesn't fire (SIGKILL etc.),
+    # restore the file the next time run.sh starts.
+    cp frontend/js/app.js.bak frontend/js/app.js.original-backup 2>/dev/null || true
+fi
+# If a previous run left a backup behind without restoring, restore it now.
+if [ -f frontend/js/app.js.original-backup ] && [ "$BACKEND_PORT" = "8000" ]; then
+    mv frontend/js/app.js.original-backup frontend/js/app.js
+    rm -f frontend/js/app.js.bak
 fi
 
 # ── 5. Start backend (background) ───────────────────────────

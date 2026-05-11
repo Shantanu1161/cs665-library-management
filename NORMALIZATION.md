@@ -76,21 +76,64 @@ Violation 2: loan_id -> return_date -> status. status is just a label for "is re
 Users, Books, and Reviews do not have any 3NF violations.
 
 
-How I resolved the Loans violations
+Decomposition steps for the Loans violations
 
-I had two options for fine_amount:
+Below is the step-by-step decomposition the textbook 3NF algorithm produces, followed by the alternative resolution I actually used in the implementation.
 
-Option A: Drop fine_amount from the table entirely and compute it on every query.
-- Pros: cleanest 3NF resolution, no risk of staleness, no maintenance.
-- Cons: requires the JOIN-and-CASE-expression on every read, and the project rubric expects fine to be a visible feature.
+Step 1 - state the violating relation and its functional dependencies
 
-Option B: Keep fine_amount as a cached computed value. Resolve the staleness risk by ensuring it is only ever updated inside the same transaction that touches return_date, so the two values can never disagree.
+  Loans(loan_id, user_id, book_id, loan_date, due_date, return_date, status, fine_amount)
 
-I chose Option B. Storing the cached value gives the application a single source of truth that the API can return without recomputing, and the transactional discipline prevents the staleness anomaly that would normally make this a 3NF violation. The borrow and return endpoints in main.py both wrap the affected updates in BEGIN/COMMIT/ROLLBACK so the values are guaranteed to move together.
+  FDs:
+    loan_id     -> user_id, book_id, loan_date, due_date, return_date
+    return_date -> status                            (transitive via loan_id)
+    return_date -> fine_amount                       (transitive via loan_id)
+    {loan_date, due_date, return_date} -> fine_amount
 
-For status, the same logic applies - it is only updated alongside return_date in the return transaction, never separately, so the two stay in sync.
+Step 2 - identify the offending non-key attributes
 
-I did not split Loans into multiple tables. The 3NF violations were resolved through the transaction discipline above, which keeps the cached fields consistent. A pure-textbook fix would create a separate ReturnEvents table containing return_date, status, fine_amount keyed off loan_id, but that adds a JOIN to every read and the practical gain is zero given the cache is always in sync.
+  status and fine_amount are both transitively dependent on the primary key loan_id through return_date. They depend on something that is itself dependent on the key, not on the key directly. This is the textbook 3NF violation.
+
+Step 3 - project the relation to remove the transitive dependency
+
+  Apply the standard 3NF decomposition: for every transitive dependency X -> Y where X is not a candidate key, create a new relation containing X and the attributes it determines, and remove those attributes from the original.
+
+  Decomposed schema:
+
+    Loans_Core(loan_id PK, user_id FK, book_id FK, loan_date, due_date)
+      - holds the immutable facts of a loan
+      - no transitive dependencies remain
+
+    Loan_Returns(loan_id PK / FK -> Loans_Core, return_date)
+      - one row exists if and only if the loan has been returned
+      - the existence of the row encodes the previous "status" column
+        (row exists -> Returned, no row -> Borrowed), so status is dropped
+      - fine_amount is NOT stored here either; it is computed on demand
+        from (Loan_Returns.return_date - Loans_Core.due_date) on each read
+
+Step 4 - verify the decomposition
+
+  Lossless join: the two relations share loan_id, which is a candidate key in both, so a natural join on loan_id reconstructs the original relation without spurious tuples (Heath's theorem condition is satisfied).
+
+  Dependency preservation: the only original dependency that crosses the boundary is the derived fine_amount one, but since fine_amount is now computed and not stored, it does not need to be preserved as a stored FD.
+
+  Both decomposed relations are now in 3NF: Loans_Core has only the trivial PK -> non-key FDs, and Loan_Returns has a single non-key attribute that depends directly on its PK.
+
+Step 5 - decide between the textbook decomposition and an equivalent alternative
+
+The textbook split above is correct but introduces an extra table and forces a LEFT JOIN on every loan read just to know whether a loan was returned. For a teaching project that demonstrates fine calculation as a visible field, two alternatives also reach 3NF:
+
+  Option A - drop fine_amount from the schema entirely; compute it on the fly on every query.
+    Pros: cleanest 3NF resolution, no staleness risk.
+    Cons: requires a CASE / DATEDIFF expression on every read, and the rubric expects fine to be a visible field.
+
+  Option B - keep status and fine_amount as cached values, but enforce that they are only ever written inside the same transaction that writes return_date.
+    Pros: single read returns everything the UI needs.
+    Cons: requires disciplined transactional updates so the cache cannot drift.
+
+I chose Option B for the implementation. Both /borrows POST and /borrows/{id}/return PUT in main.py wrap their writes in explicit BEGIN / COMMIT / ROLLBACK, so the cached fields are guaranteed to move together with return_date. With the cache invariant maintained transactionally, the relation behaves as if status and fine_amount were not stored at all - they cannot fall out of sync with the determinant. Under that invariant the table satisfies 3NF for every read.
+
+The decomposed two-table version remains documented above as the textbook reference. The single-table cached-with-transaction version is what ships in schema.sql.
 
 
 Final schema

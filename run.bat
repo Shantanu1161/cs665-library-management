@@ -66,7 +66,9 @@ echo [setup] Dependencies OK.
 echo.
 
 REM ── 6. Start backend in a new window (using venv python directly) ──
-start "Library Backend" cmd /k ""%VENV_PY%" "%~dp0backend\main.py""
+REM Using `cd /d` first then a relative filename avoids the nested-quote
+REM pitfalls of passing two absolute paths to cmd /k on one line.
+start "Library Backend" cmd /k "cd /d "%~dp0backend" && "%VENV_PY%" main.py"
 
 REM ── 7. Start frontend in a new window (using venv python directly) ──
 start "Library Frontend" cmd /k "cd /d "%~dp0frontend" && "%VENV_PY%" -m http.server 3000"

@@ -1,0 +1,5 @@
+# Top-level requirements file so deployment platforms (Render, Railway,
+# Fly.io, PythonAnywhere, etc.) pick it up automatically at the repo root.
+# The canonical file is backend/requirements.txt; this just re-lists the
+# same pinned versions.
+-r backend/requirements.txt

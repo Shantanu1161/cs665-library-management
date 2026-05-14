@@ -105,6 +105,30 @@ Wait for: `Serving HTTP on :: port 3000`
 
 ---
 
+## 🌐 Live Demo (Deployment)
+
+The project is also deployable as a single web service to Render's free tier — the FastAPI backend serves both the JSON API and the SPA frontend from one URL.
+
+### One-time deploy steps (5 minutes)
+
+1. Sign up for a free account at https://dashboard.render.com (GitHub login works).
+2. Click **New +** → **Blueprint**.
+3. Connect this repository (or your fork): `Shantanu1161/cs665-library-management`.
+4. Render reads `render.yaml` and provisions the service automatically. No further config needed.
+5. Wait ~2 minutes for the first build. The URL will be something like `https://cs665-library-management.onrender.com`.
+
+### Free tier behavior (important to know)
+
+- **Cold starts:** the free service sleeps after ~15 minutes of inactivity. The first request after a sleep takes ~30 seconds to wake up.
+- **Ephemeral disk:** the SQLite database is recreated and re-seeded on every cold start. This is fine for a class demo — the prof always sees a clean baseline (15 books, 10 members, 14 loans).
+- **No login or secrets:** the project has no authentication and no sensitive data, so a public URL is safe.
+
+### How the single-service deploy works
+
+In production, FastAPI serves the frontend itself via a `StaticFiles` mount at `/`. The frontend's `app.js` detects this at runtime — when the page is opened from anywhere other than `localhost:3000`, it makes API calls relative to the same origin. No code changes are needed to switch between local dev and production.
+
+---
+
 ## 🗂️ Project Structure
 
 ```

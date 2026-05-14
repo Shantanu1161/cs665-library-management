@@ -3,7 +3,16 @@
    CS665 Project 3
    ════════════════════════════════════════════════════════ */
 
-const API = "http://localhost:8000";
+// Decides where the backend lives based on how the page was opened.
+//   - localhost:3000 (dev, frontend served by python http.server) -> backend on :8000
+//   - file://                                                      -> backend on :8000
+//   - everything else (production, served by FastAPI itself)       -> same origin (relative URLs)
+const API = (() => {
+  const isLocalSplitDev =
+    window.location.protocol === "file:" ||
+    window.location.port === "3000";
+  return isLocalSplitDev ? "http://localhost:8000" : "";
+})();
 
 /* ── State ─────────────────────────────────────────────── */
 let editingBookId   = null;

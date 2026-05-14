@@ -1,0 +1,23 @@
+# Render.com deployment config
+# Connect this repo on https://dashboard.render.com -> New + -> Blueprint,
+# point it at your fork, and Render reads this file to provision the service.
+#
+# Free tier behavior:
+#   - The service sleeps after ~15 minutes of inactivity. First request after
+#     a sleep takes ~30 seconds to wake the container.
+#   - The disk is ephemeral. SQLite is recreated and re-seeded from
+#     sql/schema.sql + sql/seed.sql on every cold start. That is fine for a
+#     class demo: the prof always sees a clean baseline.
+
+services:
+  - type: web
+    name: cs665-library-management
+    runtime: python
+    plan: free
+    region: oregon                  # closest free region; change if you prefer
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+    healthCheckPath: /dashboard

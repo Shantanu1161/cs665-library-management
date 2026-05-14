@@ -851,6 +851,19 @@ def delete_review(review_id: int):
     return {"message": "Review deleted successfully"}
 
 
+# ── Static frontend mount (must come AFTER all API routes) ──────────────────
+# In dev, the frontend is usually served by `python -m http.server` on port 3000
+# so this mount is irrelevant. In production (single-service deploy on Render),
+# the same FastAPI process serves the SPA from / with all assets relative.
+from fastapi.staticfiles import StaticFiles  # imported here to keep top of file lean
+
+_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.isdir(_FRONTEND_DIR):
+    # html=True makes it serve index.html for / and any unknown path,
+    # which is the standard SPA fallback behavior.
+    app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+
+
 # ── Direct-run entry point ──────────────────────────────────────────────────
 # Lets the user start the server with `python main.py` (no `main:app` colon
 # syntax). This avoids a Windows PowerShell quoting quirk where the colon in

@@ -237,13 +237,28 @@ CREATE TABLE Reviews (
 
 ### Start the Backend Server
 
-The virtual environment must be activated first, otherwise `uvicorn` won't be found:
+The virtual environment must be activated first, otherwise `uvicorn` won't be found.
 
+**Recommended (works on every OS and every shell):**
 ```bash
 # From project root
 source venv/bin/activate         # Windows: venv\Scripts\activate
 cd backend
+python main.py
+```
+
+`main.py` ends with a `uvicorn.run(...)` block so it can be launched directly with `python`. This avoids a Windows PowerShell quirk where the colon in `uvicorn main:app` can get mangled to `:app` and produce `Error loading ASGI app. Attribute ":app" not found`.
+
+**Alternative (Mac/Linux, or Windows cmd.exe):**
+```bash
+source venv/bin/activate         # Windows: venv\Scripts\activate
+cd backend
 uvicorn main:app --reload
+```
+
+If you're on Windows PowerShell and want to use the `uvicorn` form, quote the module spec:
+```powershell
+uvicorn "main:app" --reload
 ```
 
 The API runs at: **http://localhost:8000**

@@ -828,3 +828,20 @@ def delete_review(review_id: int):
     conn.commit()
     conn.close()
     return {"message": "Review deleted successfully"}
+
+
+# ── Direct-run entry point ──────────────────────────────────────────────────
+# Lets the user start the server with `python main.py` (no `main:app` colon
+# syntax). This avoids a Windows PowerShell quoting quirk where the colon in
+# `uvicorn main:app` is sometimes mangled to ":app", producing
+#   "Error loading ASGI app. Attribute ':app' not found in module 'main'."
+# Running `python main.py` works identically on macOS, Linux, and Windows
+# in every shell (cmd, PowerShell, Git Bash, WSL).
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=int(os.environ.get("PORT", "8000")),
+        reload=True,
+    )

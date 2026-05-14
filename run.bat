@@ -23,7 +23,10 @@ if errorlevel 1 (
 )
 
 REM ── 4. Start backend in a new window ──
-start "Library Backend"  cmd /k "call venv\Scripts\activate.bat && cd backend && uvicorn main:app --reload"
+REM Using `python main.py` instead of `uvicorn main:app --reload` because the
+REM colon syntax can break in Windows PowerShell. main.py has an
+REM `if __name__ == "__main__": uvicorn.run(...)` block that does the same thing.
+start "Library Backend"  cmd /k "call venv\Scripts\activate.bat && cd backend && python main.py"
 
 REM ── 5. Start frontend in a new window ──
 start "Library Frontend" cmd /k "cd frontend && python -m http.server 3000"

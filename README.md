@@ -45,12 +45,20 @@ cd cs665-library-management
 ./run.sh
 ```
 
-**Windows:**
+**Windows (cmd.exe):**
 ```cmd
 git clone https://github.com/Shantanu1161/cs665-library-management.git
 cd cs665-library-management
 run.bat
 ```
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/Shantanu1161/cs665-library-management.git
+cd cs665-library-management
+.\run.bat
+```
+(PowerShell does not run scripts from the current folder by default, so the `.\` prefix is required. cmd.exe accepts either form.)
 
 The browser will open at **http://localhost:3000** automatically. The pill in the top-right should read **● API Connected** (green).
 

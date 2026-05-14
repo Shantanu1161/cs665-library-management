@@ -73,11 +73,16 @@ source venv/bin/activate         # Windows: venv\Scripts\activate
 pip install -r backend/requirements.txt
 ```
 
+> **Heads-up on Windows:** if you have multiple Pythons installed (Anaconda, Microsoft Store python, etc.) the activated venv is not always the one `pip install` writes to. The launcher script `run.bat` works around this automatically. If you are installing manually, use the venv's pip directly:
+> ```cmd
+> venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+> ```
+
 **Terminal 1 — backend** (must keep running):
 ```bash
 source venv/bin/activate         # Windows: venv\Scripts\activate
 cd backend
-uvicorn main:app --reload
+python main.py                   # cross-platform safe; or: uvicorn main:app --reload
 ```
 Wait for: `Uvicorn running on http://127.0.0.1:8000`
 

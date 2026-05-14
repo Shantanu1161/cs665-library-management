@@ -4,9 +4,30 @@ Backend: FastAPI + SQLite (sqlite3)
 Author: Shantanu Rajesh Sawarkar
 """
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, field_validator
+# Friendly dependency check — give a useful message instead of a raw
+# ModuleNotFoundError if someone runs main.py without installing first.
+try:
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from pydantic import BaseModel, Field, field_validator
+except ModuleNotFoundError as _missing:
+    import sys, os as _os
+    sys.stderr.write("\n" + "=" * 64 + "\n")
+    sys.stderr.write(f"ERROR: missing dependency '{_missing.name}'.\n\n")
+    sys.stderr.write("This project requires fastapi, uvicorn, and pydantic.\n")
+    sys.stderr.write("Install them from the project root with:\n\n")
+    if _os.name == "nt":
+        sys.stderr.write("    venv\\Scripts\\activate.bat\n")
+    else:
+        sys.stderr.write("    source venv/bin/activate\n")
+    sys.stderr.write("    pip install -r backend/requirements.txt\n\n")
+    sys.stderr.write("Or, easiest, just use the launcher script from the\n")
+    sys.stderr.write("project root which does this automatically:\n\n")
+    sys.stderr.write("    ./run.sh        (macOS / Linux)\n")
+    sys.stderr.write("    run.bat         (Windows)\n")
+    sys.stderr.write("=" * 64 + "\n\n")
+    sys.exit(1)
+
 from typing import Optional, List
 import sqlite3
 import os
